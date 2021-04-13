@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"PrometheusAlert/models"
-	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/logs"
 	"strconv"
 	"time"
+
+	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 )
 
 //取到tpl路径
@@ -114,7 +115,7 @@ func (c *MainController) AlertTest() {
 		c.Data["json"] = ret
 	case "fs":
 		fstext := "[PrometheusAlert](https://github.com/feiyu563/PrometheusAlert)\n\n" + "测试告警\n\n" + "告警级别：测试\n\nPrometheusAlert\n\n" + "![PrometheusAlert](" + beego.AppConfig.String("logourl") + ")"
-		ret := PostToFeiShu("PrometheusAlert", fstext, beego.AppConfig.String("fsurl"), logsign)
+		ret := PostToFS("PrometheusAlert", fstext, beego.AppConfig.String("fsurl"), logsign)
 		c.Data["json"] = ret
 	case "txdx":
 		MobileMessage := "PrometheusAlertCenter测试告警"
@@ -145,6 +146,30 @@ func (c *MainController) AlertTest() {
 			欢迎使用<a href ="https://feiyu563.gitee.io">PrometheusAlert</a><br>
 			`
 		ret := SendEmail(TestEmailMessage, beego.AppConfig.String("Default_emails"), logsign)
+		c.Data["json"] = ret
+	case "7moordx":
+		MobileMessage := "PrometheusAlertCenter测试告警"
+		ret := Post7MOORmessage(MobileMessage, beego.AppConfig.String("defaultphone"), logsign)
+		c.Data["json"] = ret
+	case "7moordh":
+		MobileMessage := "PrometheusAlertCenter测试告警"
+		ret := Post7MOORphonecall(MobileMessage, beego.AppConfig.String("defaultphone"), logsign)
+		c.Data["json"] = ret
+	case "tg":
+		TgMessage := "PrometheusAlertCenter测试告警"
+		ret := SendTG(TgMessage, logsign)
+		c.Data["json"] = ret
+	case "workwechat":
+		WorkwechatMessage := "[PrometheusAlert](https://github.com/feiyu563/PrometheusAlert)\n" + "测试告警\n" + "告警级别：测试\nPrometheusAlert\n" + "![PrometheusAlert](" + beego.AppConfig.String("logourl") + ")"
+		ret := SendWorkWechat(beego.AppConfig.String("WorkWechat_ToUser"),beego.AppConfig.String("WorkWechat_ToParty"), beego.AppConfig.String("WorkWechat_ToTag"),WorkwechatMessage, logsign)
+		c.Data["json"] = ret
+	case "bddx":
+		MobileMessage := "PrometheusAlertCenter测试告警"
+		ret := PostBDYmessage(MobileMessage, beego.AppConfig.String("defaultphone"), logsign)
+		c.Data["json"] = ret
+	case "bdrl":
+		RLMessage := "## [PrometheusAlert](https://github.com/feiyu563/PrometheusAlert)\n\n" + "#### 测试告警\n\n" + "###### 告警级别：测试\n\n##### PrometheusAlert\n\n" + "![PrometheusAlert](" + beego.AppConfig.String("logourl") + ")"
+		ret := PostToRuLiu(beego.AppConfig.String("BDRL_ID"),RLMessage,beego.AppConfig.String("BDRL_URL"), logsign)
 		c.Data["json"] = ret
 	default:
 		c.Data["json"] = "hahaha!"

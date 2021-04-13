@@ -3,11 +3,12 @@ package controllers
 import (
 	"PrometheusAlert/model"
 	"encoding/json"
-	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/logs"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 )
 
 type PrometheusController struct {
@@ -27,7 +28,8 @@ type Annotations struct {
 	Ddurl  string `json:"ddurl"`  //2019年3月12日 20:33:38 增加多个钉钉告警支持
 	Wxurl  string `json:"wxurl"`  //2019年3月12日 20:33:38 增加多个钉钉告警支持
 	Fsurl  string `json:"fsurl"`  //2020年4月25日 17:33:38 增加多个飞书告警支持
-	Email  string `json:"email"`  //2020年7月4日 10:15:20 增加多个飞书告警支持
+	Email  string `json:"email"`  //2020年7月4日 10:15:20 增加多个email告警支持
+	Groupid  string `json:"groupid"`  //2021年2月2日 17:28:23 增加多个如流告警支持
 }
 type Alerts struct {
 	Status       string
@@ -63,7 +65,7 @@ func (c *PrometheusController) PrometheusAlert() {
 	logsign := "[" + LogsSign() + "]"
 	logs.Info(logsign, string(c.Ctx.Input.RequestBody))
 	json.Unmarshal(c.Ctx.Input.RequestBody, &alert)
-	c.Data["json"] = SendMessageR(alert, "", "", "", "", "", logsign)
+	c.Data["json"] = SendMessageR(alert, "", "", "", "", "","", logsign)
 	logs.Info(logsign, c.Data["json"])
 	c.ServeJSON()
 }
@@ -74,16 +76,17 @@ func (c *PrometheusController) PrometheusRouter() {
 	fsurl := c.GetString("fsurl")
 	phone := c.GetString("phone")
 	email := c.GetString("email")
+	groupid := c.GetString("groupid")
 	logsign := "[" + LogsSign() + "]"
 	alert := Prometheus{}
 	logs.Info(logsign, string(c.Ctx.Input.RequestBody))
 	json.Unmarshal(c.Ctx.Input.RequestBody, &alert)
-	c.Data["json"] = SendMessageR(alert, wxurl, ddurl, fsurl, phone, email, logsign)
+	c.Data["json"] = SendMessageR(alert, wxurl, ddurl, fsurl, phone, email,groupid,logsign)
 	logs.Info(logsign, c.Data["json"])
 	c.ServeJSON()
 }
 
-func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, logsign string) string {
+func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail,rgroupid,logsign string) string {
 	//增加日志标志  方便查询日志
 
 	Title := beego.AppConfig.String("title")
@@ -94,7 +97,7 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 	PhoneCallResolved, _ := beego.AppConfig.Int("phonecallresolved")
 	Silent, _ := beego.AppConfig.Int("silent")
 	PCstTime, _ := beego.AppConfig.Int("prometheus_cst_time")
-	var ddtext, wxtext, fstext, MobileMessage, PhoneCallMessage, EmailMessage, titleend string
+	var ddtext, wxtext, fstext, MobileMessage, PhoneCallMessage, EmailMessage, titleend,rltext string
 	//对分组消息进行排序
 	AlerMessage := message.Alerts
 	sort.Sort(AlerMessages(AlerMessage))
@@ -113,6 +116,7 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 			titleend = "故障恢复信息"
 			model.AlertsFromCounter.WithLabelValues("prometheus", RMessage.Annotations.Description, RMessage.Labels.Level, RMessage.Labels.Instance, "resolved").Add(1)
 			ddtext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Rlogourl + ")"
+			rltext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Rlogourl + ")"
 			fstext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Rlogourl + ")"
 			wxtext = "[" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n>**[" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")**\n>`告警级别:`" + AlertLevel[nLevel] + "\n`开始时间:`" + At + "\n`结束时间:`" + Et + "\n`故障主机IP:`" + RMessage.Labels.Instance + "\n**" + RMessage.Annotations.Description + "**"
 			MobileMessage = "\n[" + Title + "Prometheus" + titleend + "]\n" + RMessage.Labels.Alertname + "\n" + "告警级别：" + AlertLevel[nLevel] + "\n" + "故障主机IP：" + RMessage.Labels.Instance + "\n" + RMessage.Annotations.Description
@@ -129,6 +133,7 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 			titleend = "故障告警信息"
 			model.AlertsFromCounter.WithLabelValues("prometheus", RMessage.Annotations.Description, RMessage.Labels.Level, RMessage.Labels.Instance, "firing").Add(1)
 			ddtext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Logourl + ")"
+			rltext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Logourl + ")"
 			fstext = "## [" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n\n" + "#### [" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")\n\n" + "###### 告警级别：" + AlertLevel[nLevel] + "\n\n" + "###### 开始时间：" + At + "\n\n" + "###### 结束时间：" + Et + "\n\n" + "###### 故障主机IP：" + RMessage.Labels.Instance + "\n\n" + "##### " + RMessage.Annotations.Description + "\n\n" + "![" + Title + "](" + Logourl + ")"
 			wxtext = "[" + Title + "Prometheus" + titleend + "](" + RMessage.GeneratorUrl + ")\n>**[" + RMessage.Labels.Alertname + "](" + message.Externalurl + ")**\n>`告警级别:`" + AlertLevel[nLevel] + "\n`开始时间:`" + At + "\n`结束时间:`" + Et + "\n`故障主机IP:`" + RMessage.Labels.Instance + "\n**" + RMessage.Annotations.Description + "**"
 			MobileMessage = "\n[" + Title + "Prometheus" + titleend + "]\n" + RMessage.Labels.Alertname + "\n" + "告警级别：" + AlertLevel[nLevel] + "\n" + "故障主机IP：" + RMessage.Labels.Instance + "\n" + RMessage.Annotations.Description
@@ -161,6 +166,19 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 			}
 		}
 
+		//发送消息到如流
+		if rgroupid == "" && RMessage.Annotations.Groupid == "" {
+			gid := beego.AppConfig.String("BDRL_ID")
+			PostToRuLiu(gid, rltext, beego.AppConfig.String("BDRL_URL"), logsign)
+		} else {
+			if rgroupid != "" {
+				PostToRuLiu(rgroupid, rltext, beego.AppConfig.String("BDRL_URL"), logsign)
+			}
+			if RMessage.Annotations.Groupid != "" {
+				PostToRuLiu(RMessage.Annotations.Groupid, rltext, beego.AppConfig.String("BDRL_URL"), logsign)
+			}
+		}
+
 		//发送消息到微信
 		if rwxurl == "" && RMessage.Annotations.Wxurl == "" {
 			url := beego.AppConfig.String("wxurl")
@@ -182,18 +200,18 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 		//发送消息到飞书
 		if rfsurl == "" && RMessage.Annotations.Fsurl == "" {
 			url := beego.AppConfig.String("fsurl")
-			PostToFeiShu(Title+titleend, fstext, url, logsign)
+			PostToFS(Title+titleend, fstext, url, logsign)
 		} else {
 			if rfsurl != "" {
 				Fsurl := strings.Split(rfsurl, ",")
 				for _, url := range Fsurl {
-					PostToFeiShu(Title+titleend, fstext, url, logsign)
+					PostToFS(Title+titleend, fstext, url, logsign)
 				}
 			}
 			if RMessage.Annotations.Fsurl != "" {
 				Fsurl := strings.Split(RMessage.Annotations.Fsurl, ",")
 				for _, url := range Fsurl {
-					PostToFeiShu(Title+titleend, fstext, url, logsign)
+					PostToFS(Title+titleend, fstext, url, logsign)
 				}
 			}
 		}
@@ -217,16 +235,22 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 				PostTXmessage(MobileMessage, phone, logsign)
 				PostHWmessage(MobileMessage, phone, logsign)
 				PostALYmessage(MobileMessage, phone, logsign)
+				Post7MOORmessage(MobileMessage, phone, logsign)
+				PostBDYmessage(MobileMessage, phone, logsign)
 			} else {
-				if rphone == "" {
+				if rphone != "" {
 					PostTXmessage(MobileMessage, rphone, logsign)
 					PostHWmessage(MobileMessage, rphone, logsign)
 					PostALYmessage(MobileMessage, rphone, logsign)
+					Post7MOORmessage(MobileMessage, rphone, logsign)
+					PostBDYmessage(MobileMessage, rphone, logsign)
 				}
 				if RMessage.Annotations.Mobile != "" {
 					PostTXmessage(MobileMessage, RMessage.Annotations.Mobile, logsign)
 					PostHWmessage(MobileMessage, RMessage.Annotations.Mobile, logsign)
 					PostALYmessage(MobileMessage, RMessage.Annotations.Mobile, logsign)
+					Post7MOORmessage(MobileMessage, RMessage.Annotations.Mobile, logsign)
+					PostBDYmessage(MobileMessage, RMessage.Annotations.Mobile, logsign)
 				}
 			}
 		}
@@ -241,20 +265,28 @@ func SendMessageR(message Prometheus, rwxurl, rddurl, rfsurl, rphone, remail, lo
 					PostTXphonecall(PhoneCallMessage, phone, logsign)
 					PostALYphonecall(PhoneCallMessage, phone, logsign)
 					PostRLYphonecall(PhoneCallMessage, phone, logsign)
+					Post7MOORphonecall(PhoneCallMessage, phone, logsign)
 				} else {
 					if rphone != "" {
 						PostTXphonecall(PhoneCallMessage, rphone, logsign)
 						PostALYphonecall(PhoneCallMessage, rphone, logsign)
 						PostRLYphonecall(PhoneCallMessage, rphone, logsign)
+						Post7MOORphonecall(PhoneCallMessage, rphone, logsign)
 					}
 					if RMessage.Annotations.Mobile != "" {
 						PostTXphonecall(PhoneCallMessage, RMessage.Annotations.Mobile, logsign)
 						PostALYphonecall(PhoneCallMessage, RMessage.Annotations.Mobile, logsign)
 						PostRLYphonecall(PhoneCallMessage, RMessage.Annotations.Mobile, logsign)
+						Post7MOORphonecall(PhoneCallMessage, RMessage.Annotations.Mobile, logsign)
 					}
 				}
 			}
 		}
+		// 发送消息到Telegram
+		SendTG(PhoneCallMessage, logsign)
+		// 推送消息到企业微信
+		SendWorkWechat(beego.AppConfig.String("WorkWechat_ToUser"),beego.AppConfig.String("WorkWechat_ToParty"), beego.AppConfig.String("WorkWechat_ToTag"),wxtext, logsign)
+
 		//告警抑制开启就直接跳出循环
 		if Silent == 1 {
 			break
